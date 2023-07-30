@@ -1,8 +1,6 @@
 def lambda_handler(event, context):
-    # Check the answer provided by the user
-    if event['request']['privateChallengeParameters']['secretLoginCode'] == event['request']['challengeAnswer']:
-        event['response']['answerCorrect'] = True
-    else:
-        event['response']['answerCorrect'] = False
-
+    is_correct = False
+    if event['request']['privateChallengeParameters']['answer'] == event['request']['challengeAnswer']:
+        is_correct = True
+    event['response']['answerCorrect'] = is_correct
     return event

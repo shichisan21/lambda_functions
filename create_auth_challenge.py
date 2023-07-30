@@ -1,44 +1,30 @@
-import secrets
 import boto3
+import random
+import os
 
-# Create a new SES resource and specify a region.
-client = boto3.client('ses', region_name="us-west-2")
+ses_client = boto3.client('ses', region_name="ap-northeast-1")
 
 
 def lambda_handler(event, context):
-    if event['request']['session']:
-        for sess in reversed(event['request']['session']):
-            if sess['challengeResult']:
-                event['response']['issueTokens'] = True
-            else:
-                event['response']['issueTokens'] = False
-        return event
-
-    # For the new authentication attempt, generate a new secret login code and mail it to the user
-    # and setup the returned parameters to include the code parameter that the user will have to input
-    secret_login_code = secrets.token_hex(20)
-    event['response']['privateChallengeParameters'] = {
-        'secretLoginCode': secret_login_code}
+    otp = generate_otp()
+    send_otp_to_user(event['request']['userAttributes']['email'], otp)
+    event['response']['publicChallengeParameters'] = {
+        'EMAIL': event['request']['userAttributes']['email']}
+    event['response']['privateChallengeParameters'] = {'answer': otp}
     event['response']['challengeMetadata'] = 'CUSTOM_CHALLENGE'
-
-    # Your registered user's email
-    user_email = 'USER_EMAIL'
-    response = client.send_email(
-        Destination={
-            'ToAddresses': [
-                user_email,
-            ],
-        },
-        Message={
-            'Body': {
-                'Text': {
-                    'Charset': 'UTF-8',
-                    'Data': 'Your secret login code is ' + secret_login_code,
-                },
-            },
-            'Subject': {'Charset': 'UTF-8', 'Data': 'Secret Login Code'},
-        },
-        Source='SENDER_EMAIL@DOMAIN.COM',  # Replace with your SES verified email
-    )
-
     return event
+
+
+def generate_otp():
+    return str(random.randint(100000, 999999))
+
+
+def send_otp_to_user(email, otp):
+    ses_client.send_email(
+        Source=os.environ['SENDER_EMAIL'],
+        Destination={'ToAddresses': [email]},
+        Message={
+            'Subject': {'Data': 'Your OTP'},
+            'Body': {'Text': {'Data': 'Your OTP is ' + otp}}
+        }
+    )
